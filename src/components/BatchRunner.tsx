@@ -57,7 +57,7 @@ function formatTime(totalSeconds: number): string {
 }
 
 export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
-  const [slugsText, setSlugsText] = useState(DEFAULT_SAMPLE_SLUGS.join("\n"));
+  const [slugsText, setSlugsText] = useState("");
   const [minDelayMinutes, setMinDelayMinutes] = useState(2);
   const [maxDelayMinutes, setMaxDelayMinutes] = useState(5);
 

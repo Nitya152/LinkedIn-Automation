@@ -22,18 +22,18 @@ import { AutomationConfig, ConnectedAccount } from "@/types";
 import { sanitizeBaseUrl, extractLinkedInSlug } from "@/lib/unipile";
 
 export const DEFAULT_CONFIG: AutomationConfig = {
-  baseUrl: "https://api70.unipile.com:20009/api/v1",
-  apiKey: "M6UTAZQ7.+VlkKMR+9Zitw9LSF3L+Ay5YT9FuYilZNU/hy8jE/SE=",
-  accountId: "BdbX2VPBS1-_nCCRdnxt_g",
-  targetInput: "vaidehi-gondalia-35b395250",
-  message: "Hi, I'd like to connect with you.",
+  baseUrl: "",
+  apiKey: "",
+  accountId: "",
+  targetInput: "",
+  message: "",
   sendWithoutNote: false,
   limit: 10,
   reactionType: "like",
   commentText: "",
 };
 
-const STORAGE_KEY = "linkedin_automation_config_v1";
+const STORAGE_KEY = "linkedin_automation_config_v2";
 
 interface ConfigFormProps {
   onRunAutomation: (config: AutomationConfig) => void;
@@ -57,7 +57,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
         setConfig((prev) => ({
           ...prev,
           ...parsed,
-          baseUrl: sanitizeBaseUrl(parsed.baseUrl || DEFAULT_CONFIG.baseUrl),
+          baseUrl: parsed.baseUrl ? sanitizeBaseUrl(parsed.baseUrl) : "",
         }));
       }
     } catch (e) {
@@ -82,6 +82,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
   };
 
   const handleBaseUrlBlur = () => {
+    if (!config.baseUrl.trim()) return;
     const sanitized = sanitizeBaseUrl(config.baseUrl);
     handleChange("baseUrl", sanitized);
   };
@@ -89,11 +90,18 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
   const extractedSlug = extractLinkedInSlug(config.targetInput);
 
   const handleFetchAccounts = async () => {
+    if (!config.apiKey.trim()) {
+      setAccountFetchError("Please enter your Unipile API Key first.");
+      return;
+    }
     setIsFetchingAccounts(true);
     setAccountFetchError(null);
     try {
-      const sanitized = sanitizeBaseUrl(config.baseUrl);
-      handleChange("baseUrl", sanitized);
+      const effectiveBaseUrl = config.baseUrl.trim() || "https://api70.unipile.com:20009/api/v1";
+      const sanitized = sanitizeBaseUrl(effectiveBaseUrl);
+      if (config.baseUrl.trim()) {
+        handleChange("baseUrl", sanitized);
+      }
 
       const res = await fetch("/api/accounts", {
         method: "POST",
@@ -136,7 +144,8 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const sanitized = sanitizeBaseUrl(config.baseUrl);
+    const effectiveBaseUrl = config.baseUrl.trim() || "https://api70.unipile.com:20009/api/v1";
+    const sanitized = sanitizeBaseUrl(effectiveBaseUrl);
     const finalConfig = { ...config, baseUrl: sanitized };
     setConfig(finalConfig);
     onRunAutomation(finalConfig);
@@ -161,7 +170,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          <span>Reset Defaults</span>
+          <span>Reset Form</span>
         </button>
       </div>
 
@@ -179,7 +188,6 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
             </div>
             <input
               type="text"
-              required
               value={config.baseUrl}
               onChange={(e) => handleChange("baseUrl", e.target.value)}
               onBlur={handleBaseUrlBlur}
@@ -206,7 +214,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
                 required
                 value={config.apiKey}
                 onChange={(e) => handleChange("apiKey", e.target.value)}
-                placeholder="Unipile API Key"
+                placeholder="Enter Unipile API Key (e.g. M6UTAZQ7...+Vlk...)"
                 className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 pr-9 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
               />
               <button
@@ -240,7 +248,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
                 required
                 value={config.accountId}
                 onChange={(e) => handleChange("accountId", e.target.value)}
-                placeholder="BdbX2VPBS1-_nCCRdnxt_g"
+                placeholder="Enter Account ID (e.g. BdbX2VPBS1-_nCCRdnxt_g)"
                 className="flex-1 rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
               />
               <button
@@ -277,7 +285,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
                   <span>{accountFetchError}</span>
                 </div>
                 <p className="text-[11px] text-rose-700 leading-relaxed pl-5">
-                  💡 <strong>Tip:</strong> You do <em>not</em> need to fetch accounts if you already have your Account ID (<code className="bg-rose-100 px-1 py-0.2 rounded font-mono font-semibold">{config.accountId}</code>). To reconnect an expired session, visit your <a href="https://dashboard.unipile.com" target="_blank" rel="noreferrer" className="underline font-semibold hover:text-rose-900">Unipile Dashboard</a>.
+                  💡 <strong>Tip:</strong> If you know your Account ID, paste it directly into the field above. To reconnect an expired session, visit your <a href="https://dashboard.unipile.com" target="_blank" rel="noreferrer" className="underline font-semibold hover:text-rose-900">Unipile Dashboard</a>.
                 </p>
               </div>
             )}
@@ -299,7 +307,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
               required
               value={config.targetInput}
               onChange={(e) => handleChange("targetInput", e.target.value)}
-              placeholder="vaidehi-gondalia-35b395250 or https://www.linkedin.com/in/..."
+              placeholder="e.g. vaidehi-gondalia-35b395250 or https://www.linkedin.com/in/username"
               className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
             />
             <p className="text-[11px] text-slate-400 mt-1">
@@ -397,7 +405,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
               rows={2}
               value={config.message}
               onChange={(e) => handleChange("message", e.target.value)}
-              placeholder="Hi, I'd like to connect with you."
+              placeholder="e.g. Hi, I'd like to connect with you."
               className="w-full rounded-md border border-slate-300 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none disabled:bg-slate-100 disabled:opacity-50"
             />
           </div>

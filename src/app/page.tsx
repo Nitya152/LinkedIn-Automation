@@ -13,7 +13,7 @@ import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, Prof
 import { AlertCircle, ShieldCheck, Zap, User, Users, Clock } from "lucide-react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"single" | "batch">("batch");
+  const [activeTab, setActiveTab] = useState<"single" | "batch">("single");
   const [config, setConfig] = useState<AutomationConfig>(DEFAULT_CONFIG);
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<AutomationStepLog[]>([]);
@@ -112,19 +112,6 @@ export default function Home() {
           <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-200/70 border border-slate-200">
             <button
               type="button"
-              onClick={() => setActiveTab("batch")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === "batch"
-                  ? "bg-white text-blue-700 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>Batch Queue (10–15 Slugs & Random Gaps)</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setActiveTab("single")}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === "single"
@@ -134,6 +121,19 @@ export default function Home() {
             >
               <User className="h-3.5 w-3.5" />
               <span>Single Profile Flow</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("batch")}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "batch"
+                  ? "bg-white text-blue-700 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Batch Queue (10–15 Slugs & Random Gaps)</span>
             </button>
           </div>
 
