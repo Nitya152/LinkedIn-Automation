@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { startJobWorker } from "@/lib/worker";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,20 @@ export async function GET(
       "SELECT * FROM job_items WHERE job_id = ? ORDER BY position ASC",
       [id]
     );
+
+    // Self-healing: if the job is RUNNING and its scheduled interval has elapsed,
+    // ensure the worker is running (crucial for Vercel serverless where background workers can freeze)
+    if (job.status === "RUNNING") {
+      const hasUnfinished = items.some(
+        (i) => i.status === "PENDING" || i.status === "DELAYING"
+      );
+      if (hasUnfinished) {
+        const isTimeDue = !job.next_run_at || new Date(job.next_run_at).getTime() <= Date.now();
+        if (isTimeDue) {
+          startJobWorker(job.id);
+        }
+      }
+    }
 
     const formattedItems = items.map((item) => ({
       ...item,

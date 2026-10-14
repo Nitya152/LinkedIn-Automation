@@ -5,34 +5,48 @@ import fs from "node:fs";
 // Determine if we are using PostgreSQL (e.g. Render / Neon / Supabase) or local SQLite
 const isPostgres = Boolean(process.env.DATABASE_URL);
 
+declare global {
+  var _pgPool: Pool | undefined;
+  var _sqliteDb: any | undefined;
+}
+
 let pgPool: Pool | null = null;
 let sqliteDb: any = null;
 
 if (isPostgres) {
   // Render PostgreSQL requires SSL in production
-  pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" || process.env.DATABASE_URL?.includes("render.com")
-      ? { rejectUnauthorized: false }
-      : false,
-    max: 10,
-    idleTimeoutMillis: 30000,
-  });
+  if (!globalThis._pgPool) {
+    globalThis._pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl:
+        process.env.NODE_ENV === "production" ||
+        process.env.DATABASE_URL?.includes("render.com") ||
+        process.env.DATABASE_URL?.includes("sslmode=require")
+          ? { rejectUnauthorized: false }
+          : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+    });
+  }
+  pgPool = globalThis._pgPool;
 } else {
   // Local development SQLite fallback
-  try {
-    const Database = require("better-sqlite3");
-    const dataDir = path.join(process.cwd(), "data");
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+  if (!globalThis._sqliteDb) {
+    try {
+      const Database = require("better-sqlite3");
+      const dataDir = path.join(process.cwd(), "data");
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const dbPath = path.join(dataDir, "automation.db");
+      globalThis._sqliteDb = new Database(dbPath);
+      globalThis._sqliteDb.pragma("journal_mode = WAL");
+      globalThis._sqliteDb.pragma("foreign_keys = ON");
+    } catch (err) {
+      console.warn("[DB] SQLite not available, running in-memory or awaiting DATABASE_URL:", err);
     }
-    const dbPath = path.join(dataDir, "automation.db");
-    sqliteDb = new Database(dbPath);
-    sqliteDb.pragma("journal_mode = WAL");
-    sqliteDb.pragma("foreign_keys = ON");
-  } catch (err) {
-    console.warn("[DB] SQLite not available, running in-memory or awaiting DATABASE_URL:", err);
   }
+  sqliteDb = globalThis._sqliteDb;
 }
 
 let isInitialized = false;
@@ -172,11 +186,20 @@ function toPgSql(sql: string): string {
   return sql.replace(/\?/g, () => `$${index++}`);
 }
 
+function ensureDb() {
+  if (!pgPool && !sqliteDb) {
+    throw new Error(
+      "Database not connected. Please provide the DATABASE_URL environment variable (for Render PostgreSQL) in your deployment settings."
+    );
+  }
+}
+
 export const db = {
   isPostgres,
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     await initDb();
+    ensureDb();
     if (isPostgres && pgPool) {
       const res = await pgPool.query(toPgSql(sql), params);
       return res.rows as T[];
@@ -188,6 +211,7 @@ export const db = {
 
   async queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
     await initDb();
+    ensureDb();
     if (isPostgres && pgPool) {
       const res = await pgPool.query(toPgSql(sql), params);
       return (res.rows[0] as T) || null;
@@ -199,6 +223,7 @@ export const db = {
 
   async execute(sql: string, params: any[] = []): Promise<any> {
     await initDb();
+    ensureDb();
     if (isPostgres && pgPool) {
       return await pgPool.query(toPgSql(sql), params);
     } else if (sqliteDb) {

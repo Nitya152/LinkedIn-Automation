@@ -33,9 +33,10 @@ function getArg(name, defaultValue = undefined) {
 }
 const hasFlag = (name) => args.includes(`--${name}`);
 
-const baseUrl = getArg('base-url', 'https://api70.unipile.com:20009/api/v1');
-const apiKey = getArg('api-key', 'M6UTAZQ7.+VlkKMR+9Zitw9LSF3L+Ay5YT9FuYilZNU/hy8jE/SE=');
-const accountId = getArg('account', 'BdbX2VPBS1-_nCCRdnxt_g');
+const serverUrl = getArg('server', process.env.SERVER_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const baseUrl = getArg('base-url', process.env.UNIPILE_BASE_URL || 'https://api70.unipile.com:20009/api/v1');
+const apiKey = getArg('api-key', process.env.UNIPILE_API_KEY || 'M6UTAZQ7.+VlkKMR+9Zitw9LSF3L+Ay5YT9FuYilZNU/hy8jE/SE=');
+const accountId = getArg('account', process.env.UNIPILE_ACCOUNT_ID || 'BdbX2VPBS1-_nCCRdnxt_g');
 const minDelayMinutes = Math.max(0.1, parseFloat(getArg('min-delay', '2')));
 const maxDelayMinutes = Math.max(minDelayMinutes, parseFloat(getArg('max-delay', '5')));
 const reactionType = getArg('reaction', 'like');
@@ -146,7 +147,7 @@ async function runBatch() {
     const startTimePerf = performance.now();
 
     try {
-      const response = await fetch('http://localhost:3005/api/automate', {
+      const response = await fetch(`${serverUrl}/api/automate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

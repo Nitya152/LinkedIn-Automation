@@ -2,13 +2,13 @@ import { sanitizeBaseUrl, extractLinkedInSlug } from "./unipile";
 import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, ProfileInfo } from "@/types";
 
 export function getUnipileErrorMessage(data: any, res?: Response): string {
+  if (data?.title === "No client session" || data?.type === "errors/no_client_session") {
+    return "No active client session (HTTP 503): Your LinkedIn account session is disconnected or expired on the Unipile dashboard. Please reconnect your account on dashboard.unipile.com.";
+  }
+  if (data?.title === "Invalid credentials" || data?.type === "errors/invalid_credentials") {
+    return "Invalid API credentials (HTTP 401): Please verify your Unipile API Key.";
+  }
   if (data?.title) {
-    if (data.title === "No client session" || data?.type === "errors/no_client_session") {
-      return "No active client session (HTTP 503): Your LinkedIn account session is disconnected or expired on the Unipile dashboard. Please reconnect your account on dashboard.unipile.com.";
-    }
-    if (data.title === "Invalid credentials" || data?.type === "errors/invalid_credentials") {
-      return "Invalid API credentials (HTTP 401): Please verify your Unipile API Key.";
-    }
     return `${data.title}${data?.message ? `: ${data.message}` : ""}`;
   }
   return data?.message || data?.error || (res ? `HTTP ${res.status} ${res.statusText}` : "Request failed");

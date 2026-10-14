@@ -207,6 +207,28 @@ async function processJob(jobId: string) {
          WHERE id = ?`,
         [completedAt, jobId]
       );
+
+      // 8. Circuit Breaker: Auto-pause batch on fatal session/credential errors
+      const isFatalAuthError =
+        result.error &&
+        (result.error.includes("HTTP 401") ||
+          result.error.includes("HTTP 503") ||
+          result.error.includes("No active client session") ||
+          result.error.includes("Invalid API credentials"));
+
+      if (isFatalAuthError) {
+        console.warn(`[Worker] Pausing job ${jobId}: LinkedIn session disconnected or credentials invalid: ${result.error}`);
+        await db.execute(
+          `UPDATE jobs 
+           SET status = 'PAUSED', 
+               next_run_at = NULL, 
+               current_gap_minutes = 0,
+               updated_at = ?
+           WHERE id = ?`,
+          [completedAt, jobId]
+        );
+        break;
+      }
     }
   } catch (error) {
     console.error(`[Worker] Error processing job ${jobId}:`, error);
