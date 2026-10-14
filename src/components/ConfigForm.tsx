@@ -17,9 +17,12 @@ import {
   Globe,
   MessageSquare,
   ThumbsUp,
+  PlusCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { AutomationConfig, ConnectedAccount } from "@/types";
 import { sanitizeBaseUrl, extractLinkedInSlug } from "@/lib/unipile";
+import ConnectAccountModal from "./ConnectAccountModal";
 
 export const DEFAULT_CONFIG: AutomationConfig = {
   baseUrl: "",
@@ -46,6 +49,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
   const [isFetchingAccounts, setIsFetchingAccounts] = useState(false);
   const [fetchedAccounts, setFetchedAccounts] = useState<ConnectedAccount[]>([]);
   const [accountFetchError, setAccountFetchError] = useState<string | null>(null);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Load from LocalStorage on mount
@@ -131,6 +135,12 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
     } finally {
       setIsFetchingAccounts(false);
     }
+  };
+
+  const handleAccountConnected = (newAccountId: string) => {
+    handleChange("accountId", newAccountId);
+    setAccountFetchError(null);
+    handleFetchAccounts().catch(() => {});
   };
 
   const handleResetDefaults = () => {
@@ -242,23 +252,33 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
               </label>
               <span className="text-[10px] text-slate-400 font-mono">LinkedIn Sender</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
               <input
                 type="text"
                 required
                 value={config.accountId}
                 onChange={(e) => handleChange("accountId", e.target.value)}
                 placeholder="Enter Account ID (e.g. BdbX2VPBS1-_nCCRdnxt_g)"
-                className="flex-1 rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
+                className="flex-1 min-w-[140px] rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer shadow-2xs"
+                title="Connect LinkedIn ID via Unipile API & OTP verification"
+              >
+                <PlusCircle className="h-3.5 w-3.5 text-blue-600" />
+                <span>+ Connect ID</span>
+              </button>
               <button
                 type="button"
                 disabled={isFetchingAccounts || !config.apiKey}
                 onClick={handleFetchAccounts}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50 flex-shrink-0"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                title="Fetch already connected accounts"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isFetchingAccounts ? "animate-spin" : ""}`} />
-                <span>Fetch Accounts</span>
+                <span>Fetch</span>
               </button>
             </div>
 
@@ -432,6 +452,14 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
           </button>
         </div>
       </form>
+
+      <ConnectAccountModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        baseUrl={config.baseUrl}
+        apiKey={config.apiKey}
+        onAccountConnected={handleAccountConnected}
+      />
     </div>
   );
 }

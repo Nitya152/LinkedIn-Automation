@@ -53,6 +53,27 @@ const ENDPOINTS: EndpointItem[] = [
     description: "Adds comment via multipart/form-data. Social URN is URL-encoded due to colons.",
     note: "FormData fields: account_id, text",
   },
+  {
+    name: "Connect Account (Direct)",
+    method: "POST",
+    template: "/accounts",
+    description: "Initiates account connection with credentials. If 2FA is triggered, returns 202 Accepted with a Checkpoint object.",
+    note: "JSON Body: { provider: 'LINKEDIN', username, password }",
+  },
+  {
+    name: "Solve Checkpoint / OTP",
+    method: "POST",
+    template: "/accounts/checkpoint",
+    description: "Submits 2FA/OTP code or phone verification to resolve LinkedIn security checkpoint.",
+    note: "JSON Body: { account_id, provider: 'LINKEDIN', code }",
+  },
+  {
+    name: "Hosted Auth Link (Wizard)",
+    method: "POST",
+    template: "/hosted/accounts/link",
+    description: "Generates an official hosted login URL where Unipile manages the authentication flow and returns an account_id.",
+    note: "JSON Body: { type: 'create', providers: ['LINKEDIN'], api_url }",
+  },
 ];
 
 export default function EndpointsDrawer() {
@@ -78,7 +99,7 @@ export default function EndpointsDrawer() {
             Unipile API Endpoint Specifications & Mappings
           </span>
           <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200">
-            6 Endpoints Active
+            9 Endpoints Active
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500">
