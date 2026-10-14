@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import ConfigForm, { DEFAULT_CONFIG } from "@/components/ConfigForm";
 import EndpointsDrawer from "@/components/EndpointsDrawer";
@@ -25,6 +25,35 @@ export default function Home() {
     completedAt: string;
     success: boolean;
   } | null>(null);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    async function loadConfig() {
+      let merged = { ...DEFAULT_CONFIG };
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.config) {
+            merged = { ...merged, ...data.config };
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load config from DB:", e);
+      }
+      try {
+        const saved = localStorage.getItem("linkedin_automation_config_v2");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          merged = { ...merged, ...parsed };
+        }
+      } catch (e) {
+        console.warn("Could not load config from localStorage:", e);
+      }
+      setConfig(merged);
+    }
+    loadConfig();
+  }, []);
 
   const handleRunAutomation = async (activeConfig: AutomationConfig) => {
     setConfig(activeConfig);
@@ -147,7 +176,10 @@ export default function Home() {
         {activeTab === "batch" && (
           <div className="space-y-6">
             <section>
-              <BatchRunner baseConfig={config} />
+              <BatchRunner
+                baseConfig={config}
+                onSwitchToSingleTab={() => setActiveTab("single")}
+              />
             </section>
 
             {/* Collapsible Endpoints Specs */}
@@ -171,7 +203,12 @@ export default function Home() {
             )}
 
             <section>
-              <ConfigForm onRunAutomation={handleRunAutomation} isRunning={isRunning} />
+              <ConfigForm
+                onRunAutomation={handleRunAutomation}
+                isRunning={isRunning}
+                initialConfig={config}
+                onConfigChange={(newCfg) => setConfig(newCfg)}
+              />
             </section>
 
             <section>

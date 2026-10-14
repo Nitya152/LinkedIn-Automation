@@ -23,6 +23,10 @@ import {
   History,
   Trash2,
   ExternalLink,
+  MessageSquare,
+  ThumbsUp,
+  KeyRound,
+  ArrowRight,
 } from "lucide-react";
 import { AutomationConfig } from "@/types";
 import { extractLinkedInSlug } from "@/lib/unipile";
@@ -30,6 +34,7 @@ import JsonViewer from "./JsonViewer";
 
 interface BatchRunnerProps {
   baseConfig: AutomationConfig;
+  onSwitchToSingleTab?: () => void;
 }
 
 const DEFAULT_SAMPLE_SLUGS = [
@@ -56,10 +61,65 @@ function formatTime(totalSeconds: number): string {
   return `${secs}s`;
 }
 
-export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
+export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRunnerProps) {
+  const [effectiveConfig, setEffectiveConfig] = useState<AutomationConfig>(baseConfig);
+  const [commonComment, setCommonComment] = useState(baseConfig.commentText || "");
+  const [batchReactionType, setBatchReactionType] = useState<
+    "like" | "celebrate" | "support" | "love" | "insightful" | "funny"
+  >(baseConfig.reactionType || "like");
+
   const [slugsText, setSlugsText] = useState("");
   const [minDelayMinutes, setMinDelayMinutes] = useState(2);
   const [maxDelayMinutes, setMaxDelayMinutes] = useState(5);
+
+  // Sync with baseConfig or load fallback from DB/localStorage if apiKey is missing
+  useEffect(() => {
+    if (baseConfig.apiKey) {
+      setEffectiveConfig(baseConfig);
+      if (baseConfig.commentText && !commonComment) {
+        setCommonComment(baseConfig.commentText);
+      }
+      if (baseConfig.reactionType) {
+        setBatchReactionType(baseConfig.reactionType);
+      }
+      return;
+    }
+
+    async function loadFallbackConfig() {
+      // 1. Try DB config
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.config && data.config.apiKey) {
+            setEffectiveConfig(data.config);
+            if (data.config.commentText) setCommonComment(data.config.commentText);
+            if (data.config.reactionType) setBatchReactionType(data.config.reactionType);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load config from DB in BatchRunner:", e);
+      }
+
+      // 2. Try localStorage
+      try {
+        const saved = localStorage.getItem("linkedin_automation_config_v2");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.apiKey) {
+            setEffectiveConfig(parsed);
+            if (parsed.commentText) setCommonComment(parsed.commentText);
+            if (parsed.reactionType) setBatchReactionType(parsed.reactionType);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load config from localStorage in BatchRunner:", e);
+      }
+    }
+
+    loadFallbackConfig();
+  }, [baseConfig]);
 
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobData, setJobData] = useState<any | null>(null);
@@ -165,21 +225,27 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
       return;
     }
 
+    if (!effectiveConfig.apiKey || !effectiveConfig.accountId) {
+      alert("API Key and Account ID are required to run a batch. Please configure and save them in the Single Profile Flow tab.");
+      onSwitchToSingleTab?.();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          baseUrl: baseConfig.baseUrl,
-          apiKey: baseConfig.apiKey,
-          accountId: baseConfig.accountId,
+          baseUrl: effectiveConfig.baseUrl,
+          apiKey: effectiveConfig.apiKey,
+          accountId: effectiveConfig.accountId,
           slugs: parsedSlugs,
           minDelayMinutes,
           maxDelayMinutes,
-          reactionType: baseConfig.reactionType,
-          commentText: baseConfig.commentText,
-          sendWithoutNote: baseConfig.sendWithoutNote,
+          reactionType: batchReactionType,
+          commentText: commonComment.trim() || undefined,
+          sendWithoutNote: effectiveConfig.sendWithoutNote ?? true,
         }),
       });
 
@@ -273,7 +339,7 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
 
     const rows = jobItems.map((r, idx) => [
       idx + 1,
-      `"${jobData?.accountId || baseConfig.accountId}"`,
+      `"${jobData?.accountId || effectiveConfig.accountId}"`,
       `"${r.slug}"`,
       `"${r.name || "N/A"}"`,
       `"${r.provider_id || "N/A"}"`,
@@ -348,6 +414,64 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
           <History className="h-3.5 w-3.5" />
           <span>{showHistory ? "Hide Past Batches" : `Past Batches (${pastJobs.length})`}</span>
         </button>
+      </div>
+
+      {/* Credential Status & Sync Banner */}
+      <div
+        className={`rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3 text-xs ${
+          effectiveConfig.apiKey && effectiveConfig.accountId
+            ? "border-blue-200 bg-blue-50/60 text-blue-900"
+            : "border-amber-200 bg-amber-50/80 text-amber-900"
+        }`}
+      >
+        <div className="flex items-center gap-2.5">
+          <KeyRound
+            className={`h-4.5 w-4.5 flex-shrink-0 ${
+              effectiveConfig.apiKey && effectiveConfig.accountId
+                ? "text-blue-600"
+                : "text-amber-600"
+            }`}
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">
+                {effectiveConfig.apiKey && effectiveConfig.accountId
+                  ? "Unipile Credentials Synced"
+                  : "Unipile Credentials Missing"}
+              </span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                  effectiveConfig.apiKey && effectiveConfig.accountId
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-amber-200/70 text-amber-900"
+                }`}
+              >
+                {effectiveConfig.apiKey && effectiveConfig.accountId ? "Ready" : "Action Required"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              {effectiveConfig.apiKey && effectiveConfig.accountId ? (
+                <>
+                  Active Account ID: <code className="font-mono font-semibold text-slate-800">{effectiveConfig.accountId}</code> • DSN:{" "}
+                  <span className="font-mono">{effectiveConfig.baseUrl.replace(/^https?:\/\//, "")}</span>
+                </>
+              ) : (
+                "Please configure and save your API Key and Account ID in the Single Profile Flow tab so batch automation can execute."
+              )}
+            </p>
+          </div>
+        </div>
+
+        {(!effectiveConfig.apiKey || !effectiveConfig.accountId) && onSwitchToSingleTab && (
+          <button
+            type="button"
+            onClick={onSwitchToSingleTab}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
+          >
+            <span>Configure in Single Flow</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* History Drawer */}
@@ -557,7 +681,7 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
             <div className="text-[11px] text-slate-600 bg-white border border-slate-200 rounded px-2.5 py-1.5 flex items-center justify-between">
               <span>Account:</span>
               <code className="font-mono font-semibold text-slate-800 truncate max-w-[160px]">
-                {baseConfig.accountId}
+                {effectiveConfig.accountId || "Not Set"}
               </code>
             </div>
           </div>
@@ -610,6 +734,66 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
                 <span>Resume</span>
               </button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Common Batch Engagement Settings (Reaction & Common Auto-Comment) */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 uppercase tracking-wider">
+            <MessageSquare className="h-4 w-4 text-blue-600" />
+            <span>Common Batch Engagement Actions (Steps 4 & 5)</span>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            Applied to each profile's latest post during the batch queue
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Reaction Type */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
+              <ThumbsUp className="h-3.5 w-3.5 text-blue-600" />
+              <span>Auto-Reaction (Step 4)</span>
+            </label>
+            <select
+              value={batchReactionType}
+              onChange={(e) =>
+                setBatchReactionType(
+                  e.target.value as "like" | "celebrate" | "support" | "love" | "insightful" | "funny"
+                )
+              }
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none capitalize font-medium"
+            >
+              <option value="like">👍 Like</option>
+              <option value="celebrate">👏 Celebrate</option>
+              <option value="support">🤝 Support</option>
+              <option value="love">❤️ Love</option>
+              <option value="insightful">💡 Insightful</option>
+              <option value="funny">😄 Funny</option>
+            </select>
+            <p className="text-[10px] text-slate-400">
+              Reacts to the most recent post found on each profile.
+            </p>
+          </div>
+
+          {/* Common Auto-Comment Text */}
+          <div className="md:col-span-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-blue-600" />
+                <span>Common Auto-Comment (Step 5)</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Optional • Leave empty to skip commenting</span>
+            </div>
+            <textarea
+              rows={2}
+              value={commonComment}
+              onChange={(e) => setCommonComment(e.target.value)}
+              placeholder="e.g. Great insights and great work! Thanks for sharing this."
+              className="w-full rounded-md border border-slate-300 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none leading-relaxed"
+            />
           </div>
         </div>
       </div>
@@ -669,7 +853,7 @@ export default function BatchRunner({ baseConfig }: BatchRunnerProps) {
               <span>Persistent Audit Log ({jobItems.length} Profiles)</span>
             </h3>
             <span className="text-[11px] text-slate-500 font-mono">
-              Account: {jobData?.accountId || baseConfig.accountId}
+              Account: {jobData?.accountId || effectiveConfig.accountId || "Not Set"}
             </span>
           </div>
 

@@ -92,6 +92,12 @@ export async function initDb(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
         CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_job_items_job ON job_items(job_id, position);
+
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
       `);
       isInitialized = true;
       console.log("[DB] Render PostgreSQL database initialized successfully.");
@@ -149,6 +155,12 @@ export async function initDb(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
       CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_job_items_job ON job_items(job_id, position);
+
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
     isInitialized = true;
   }

@@ -19,6 +19,7 @@ import {
   ThumbsUp,
   PlusCircle,
   ShieldCheck,
+  Save,
 } from "lucide-react";
 import { AutomationConfig, ConnectedAccount } from "@/types";
 import { sanitizeBaseUrl, extractLinkedInSlug } from "@/lib/unipile";
@@ -41,34 +42,65 @@ const STORAGE_KEY = "linkedin_automation_config_v2";
 interface ConfigFormProps {
   onRunAutomation: (config: AutomationConfig) => void;
   isRunning: boolean;
+  onConfigChange?: (config: AutomationConfig) => void;
+  initialConfig?: AutomationConfig;
 }
 
-export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormProps) {
-  const [config, setConfig] = useState<AutomationConfig>(DEFAULT_CONFIG);
+export default function ConfigForm({
+  onRunAutomation,
+  isRunning,
+  onConfigChange,
+  initialConfig,
+}: ConfigFormProps) {
+  const [config, setConfig] = useState<AutomationConfig>(initialConfig || DEFAULT_CONFIG);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isFetchingAccounts, setIsFetchingAccounts] = useState(false);
   const [fetchedAccounts, setFetchedAccounts] = useState<ConnectedAccount[]>([]);
   const [accountFetchError, setAccountFetchError] = useState<string | null>(null);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Load from LocalStorage on mount
+  // Load from Database and LocalStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setConfig((prev) => ({
-          ...prev,
-          ...parsed,
-          baseUrl: parsed.baseUrl ? sanitizeBaseUrl(parsed.baseUrl) : "",
-        }));
+    async function loadConfig() {
+      let merged = { ...(initialConfig || DEFAULT_CONFIG) };
+
+      // 1. Try DB first
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.config) {
+            merged = { ...merged, ...data.config };
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch DB config:", e);
       }
-    } catch (e) {
-      console.warn("Failed to load saved config:", e);
-    } finally {
+
+      // 2. Overlay localStorage if present
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          merged = { ...merged, ...parsed };
+        }
+      } catch (e) {
+        console.warn("Could not read localStorage config:", e);
+      }
+
+      if (merged.baseUrl) {
+        merged.baseUrl = sanitizeBaseUrl(merged.baseUrl);
+      }
+
+      setConfig(merged);
+      onConfigChange?.(merged);
       setIsInitialized(true);
     }
+
+    loadConfig();
   }, []);
 
   // Save to LocalStorage whenever config changes
@@ -82,7 +114,11 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
   }, [config, isInitialized]);
 
   const handleChange = <K extends keyof AutomationConfig>(key: K, value: AutomationConfig[K]) => {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+    setConfig((prev) => {
+      const updated = { ...prev, [key]: value };
+      onConfigChange?.(updated);
+      return updated;
+    });
   };
 
   const handleBaseUrlBlur = () => {
@@ -143,12 +179,43 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
     handleFetchAccounts().catch(() => {});
   };
 
+  const handleSaveConfig = async () => {
+    setIsSaving(true);
+    setSavedSuccess(false);
+    try {
+      const effectiveBaseUrl = config.baseUrl.trim() || "https://api70.unipile.com:20009/api/v1";
+      const sanitized = sanitizeBaseUrl(effectiveBaseUrl);
+      const toSave = { ...config, baseUrl: sanitized };
+
+      // 1. Save to localStorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+
+      // 2. Save to database
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(toSave),
+      });
+
+      // 3. Notify parent
+      onConfigChange?.(toSave);
+
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save config:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleResetDefaults = () => {
     if (confirm("Reset all parameters to default values?")) {
       setConfig(DEFAULT_CONFIG);
       setFetchedAccounts([]);
       setAccountFetchError(null);
       localStorage.removeItem(STORAGE_KEY);
+      onConfigChange?.(DEFAULT_CONFIG);
     }
   };
 
@@ -158,6 +225,7 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
     const sanitized = sanitizeBaseUrl(effectiveBaseUrl);
     const finalConfig = { ...config, baseUrl: sanitized };
     setConfig(finalConfig);
+    handleSaveConfig();
     onRunAutomation(finalConfig);
   };
 
@@ -170,18 +238,38 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
             <h2 className="text-sm font-semibold text-slate-900">Automation Parameters</h2>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure your Unipile credentials and target profile. Changes are auto-saved locally.
+            Configure your Unipile credentials and target profile. Changes are auto-saved locally and in database.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleResetDefaults}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          <span>Reset Form</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {savedSuccess && (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-md animate-in fade-in duration-200">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Saved to Database!</span>
+            </span>
+          )}
+
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={handleSaveConfig}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+            title="Save your credentials and settings to database so they persist for Batch runs"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{isSaving ? "Saving..." : "Save Configuration"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetDefaults}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Reset Form</span>
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
