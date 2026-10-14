@@ -61,8 +61,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const errorMessage =
+    let errorMessage =
       data?.title || data?.message || data?.error || `HTTP ${res.status}: Invalid verification code`;
+
+    if (res.status === 503 || data?.type === "errors/no_client_session") {
+      errorMessage =
+        "No active client session (HTTP 503): Your LinkedIn account session is disconnected or expired on the Unipile dashboard. Please reconnect your account on dashboard.unipile.com.";
+    } else if (res.status === 401 || data?.type === "errors/invalid_credentials") {
+      errorMessage = "Invalid API Credentials (HTTP 401): Please verify your Unipile API Key.";
+    }
+
     return NextResponse.json({ error: errorMessage, raw: data }, { status: res.status });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
