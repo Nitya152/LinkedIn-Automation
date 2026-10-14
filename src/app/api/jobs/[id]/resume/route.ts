@@ -8,10 +8,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    db.prepare("UPDATE jobs SET status = 'RUNNING', updated_at = ? WHERE id = ?").run(
+    await db.execute("UPDATE jobs SET status = 'RUNNING', updated_at = ? WHERE id = ?", [
       new Date().toISOString(),
-      id
-    );
+      id,
+    ]);
     startJobWorker(id);
     return NextResponse.json({ success: true, status: "RUNNING" });
   } catch (err: any) {

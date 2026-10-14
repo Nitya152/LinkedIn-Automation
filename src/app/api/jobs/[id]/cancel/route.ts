@@ -7,9 +7,9 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    db.prepare("UPDATE jobs SET status = 'CANCELLED', next_run_at = NULL, current_gap_minutes = 0, updated_at = ? WHERE id = ?").run(
-      new Date().toISOString(),
-      id
+    await db.execute(
+      "UPDATE jobs SET status = 'CANCELLED', next_run_at = NULL, current_gap_minutes = 0, updated_at = ? WHERE id = ?",
+      [new Date().toISOString(), id]
     );
     return NextResponse.json({ success: true, status: "CANCELLED" });
   } catch (err: any) {

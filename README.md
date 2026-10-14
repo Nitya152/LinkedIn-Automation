@@ -1,58 +1,79 @@
-# LinkedIn Manager Engagement Flow Automator (Unipile API)
+# LinkedIn Automation Engine
 
-A full-stack Next.js (App Router, TypeScript, Tailwind CSS, Lucide Icons) web application designed to automate the LinkedIn engagement lifecycle seamlessly via the Unipile API.
-
----
-
-## 🚀 Key Features
-
-1. **One-Click End-to-End Automation (`/api/automate`)**
-   - Dispatches a multi-stage engagement sequence entirely on the server side to eliminate browser CORS limitations.
-   - **Step 1: Resolve Public Slug to `provider_id`**: Queries `GET /users/{slug}?account_id={accountId}` and isolates the canonical LinkedIn `provider_id` (`ACoAA...`).
-   - **Step 2: Smart Connection Check & Invite**: Inspects `is_relationship` and `invitation.status`. Skips if already connected or pending; otherwise sends `POST /users/invite`.
-   - **Step 3: Chronological Posts Retrieval**: Fetches posts via `GET /users/{provider_id}/posts`, deterministically sorted by ISO `parsed_datetime` descending. Extracts full `social_id` (`urn:li:activity:...`).
-   - **Step 4: Automated Reaction**: Evaluates permissions and dispatches `POST /posts/reaction` (like, celebrate, support, love, insightful, funny).
-   - **Step 5: Automated Comment**: Optionally posts a comment via `POST /posts/{encodedSocialId}/comments` with `multipart/form-data`.
-
-2. **UI & Configuration (Pre-filled & Saved in LocalStorage)**
-   - **Unipile Base API URL**: Defaults to `https://api70.unipile.com:20009/api/v1` with auto-sanitization for raw domain inputs.
-   - **Unipile API Key**: Pre-filled with password show/hide toggle. Sent securely via `X-API-KEY`.
-   - **Unipile Account ID**: Pre-filled with a dedicated **"Fetch My Accounts"** action that populates a dropdown of connected accounts.
-   - **Target Profile Input**: Accepts full URLs (`https://www.linkedin.com/in/...`) or vanity slugs, stripping query params and trailing slashes.
-   - **Engagement Controls**: Customizable reaction type, custom connection note (with quota saver checkbox), and auto-comment text.
-
-3. **Collapsible API Specification Drawer**
-   - Documents all 6 core Unipile endpoints with templates and copy shortcuts.
-
-4. **Interactive Dashboard & Feeds**
-   - **Execution Log**: Status badges (`Success`, `Skipped`, `Error`, `Running`), exact HTTP method + URL, and a collapsible syntax-highlighted JSON viewer.
-   - **Resolved Profile Card**: Name, headline, location, avatar, network distance badge, connection status badge, and copyable canonical `provider_id`.
-   - **Posts Feed**: Post text, timestamps, engagement counters, full `social_id` copy button, and interactive **Manual Like & Manual Comment** controls on every post card.
+Full-stack Next.js web application and background worker for automating the LinkedIn Manager Engagement Flow via the Unipile API. Supports minute-based randomized time intervals, persistent database storage, and continuous background execution even when the browser is closed.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Architecture & Deployment
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **API Engine**: Unipile API v1
+- **Frontend & API Routes**: Next.js 15 (App Router, Tailwind CSS, Lucide Icons) deployed on **Vercel**.
+- **Database**: Managed PostgreSQL on **Render** (or Neon / Supabase). Also supports local SQLite fallback.
+- **API Engine**: Unipile API v1.
 
 ---
 
-## 🏃 Running Locally
+## 🌿 Git Branching Workflow
+
+Repository: `https://github.com/Nitya152/LinkedIn-Automation`
+
+We maintain three primary branches:
+1. `main` — Production branch (auto-deployed to Vercel production).
+2. `staging` — Staging branch (pre-production testing).
+3. `dev` — Development integration branch.
+
+### Standard Rule for Making Changes:
+Always pull latest `staging` before creating a feature branch:
+```bash
+git checkout staging
+git pull origin staging
+git checkout -b feat/your-feature-name
+```
+After completing and testing your changes, commit cleanly and merge back into `staging` (and `dev`).
+
+---
+
+## 🚀 Step-by-Step Deployment Guide
+
+### 1. Create PostgreSQL Database on Render
+1. Go to [render.com](https://dashboard.render.com/) and click **New +** $\rightarrow$ **PostgreSQL**.
+2. Set a name (e.g., `linkedin-automation-db`), select a region, and choose the Free tier.
+3. Click **Create Database**.
+4. Once provisioned, copy the **External Database URL** (e.g. `postgres://user:password@dpg-xxxx.render.com/dbname`).
+5. Ensure `?sslmode=require` is appended if required by Render.
+
+### 2. Deploy Frontend on Vercel
+1. Go to [vercel.com](https://vercel.com/) and click **Add New...** $\rightarrow$ **Project**.
+2. Select repository: `https://github.com/Nitya152/LinkedIn-Automation`.
+3. In **Environment Variables**, add:
+   - `DATABASE_URL`: Your Render PostgreSQL connection string.
+4. Click **Deploy**. Vercel will build and deploy your app with zero additional configuration!
+
+---
+
+## ⚙️ Local Development
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Start development server
+# 2. (Optional) Run with local SQLite or connect to Render DB via .env:
+cp .env.example .env.local
+
+# 3. Start local development server
 npm run dev
-# Or build and start production server:
+
+# 4. Or build and run production server locally
 npm run build
 npx next start -p 3005
 ```
 
 Navigate to `http://localhost:3005` in your browser.
 
+---
+
+## ✨ Features
+
+- **Single Profile & Batch Mode**: Automated 5-step flow (Lookup $\rightarrow$ Connection Check $\rightarrow$ Feed Retrieval $\rightarrow$ Reaction $\rightarrow$ Comment).
+- **Minute-Based Humanized Random Intervals**: Configurable min/max gaps (e.g. 2 to 5 minutes) to avoid rate limits.
+- **Persistent Database**: Powered by PostgreSQL / SQLite. Jobs continue running in the background even if you close the frontend or shut down your computer.
+- **Audit Logging**: Real-time progress bar, live gap countdown, step JSON inspector, and 1-click **CSV / JSON** exports.

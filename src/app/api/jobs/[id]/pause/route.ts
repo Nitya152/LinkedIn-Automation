@@ -7,10 +7,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    db.prepare("UPDATE jobs SET status = 'PAUSED', updated_at = ? WHERE id = ?").run(
+    await db.execute("UPDATE jobs SET status = 'PAUSED', updated_at = ? WHERE id = ?", [
       new Date().toISOString(),
-      id
-    );
+      id,
+    ]);
     return NextResponse.json({ success: true, status: "PAUSED" });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -8,16 +8,16 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const job: any = db.prepare("SELECT * FROM jobs WHERE id = ?").get(id);
+    const job: any = await db.queryOne("SELECT * FROM jobs WHERE id = ?", [id]);
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    const items: any[] = db
-      .prepare("SELECT * FROM job_items WHERE job_id = ? ORDER BY position ASC")
-      .all(id);
+    const items: any[] = await db.query(
+      "SELECT * FROM job_items WHERE job_id = ? ORDER BY position ASC",
+      [id]
+    );
 
-    // Parse logs_json for each item if present
     const formattedItems = items.map((item) => ({
       ...item,
       logs: item.logs_json ? JSON.parse(item.logs_json) : [],
@@ -54,7 +54,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    db.prepare("DELETE FROM jobs WHERE id = ?").run(id);
+    await db.execute("DELETE FROM jobs WHERE id = ?", [id]);
     return NextResponse.json({ success: true, message: "Job deleted from database" });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

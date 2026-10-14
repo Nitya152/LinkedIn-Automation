@@ -21,32 +21,32 @@ async function processJob(jobId: string) {
   try {
     while (true) {
       // 1. Fetch current job state
-      const job: any = db.prepare("SELECT * FROM jobs WHERE id = ?").get(jobId);
+      const job: any = await db.queryOne("SELECT * FROM jobs WHERE id = ?", [jobId]);
       if (!job) break;
 
       if (job.status !== "RUNNING") {
-        // Paused, cancelled, or completed
         break;
       }
 
       // 2. Fetch next item to process
-      const item: any = db
-        .prepare(
-          "SELECT * FROM job_items WHERE job_id = ? AND status IN ('PENDING', 'DELAYING') ORDER BY position ASC LIMIT 1"
-        )
-        .get(jobId);
+      const item: any = await db.queryOne(
+        "SELECT * FROM job_items WHERE job_id = ? AND status IN ('PENDING', 'DELAYING') ORDER BY position ASC LIMIT 1",
+        [jobId]
+      );
 
       if (!item) {
         // All items completed
-        db.prepare(
+        const now = new Date().toISOString();
+        await db.execute(
           `UPDATE jobs 
            SET status = 'COMPLETED', 
                completed_at = ?, 
                next_run_at = NULL, 
                current_gap_minutes = 0,
                updated_at = ?
-           WHERE id = ?`
-        ).run(new Date().toISOString(), new Date().toISOString(), jobId);
+           WHERE id = ?`,
+          [now, now, jobId]
+        );
         break;
       }
 
@@ -58,17 +58,19 @@ async function processJob(jobId: string) {
         const delayMs = Math.round(randomMinutes * 60 * 1000);
         const nextRunAt = new Date(Date.now() + delayMs).toISOString();
 
-        db.prepare(
+        await db.execute(
           `UPDATE jobs 
            SET next_run_at = ?, current_gap_minutes = ?, current_index = ?, updated_at = ?
-           WHERE id = ?`
-        ).run(nextRunAt, randomMinutes, item.position, new Date().toISOString(), jobId);
+           WHERE id = ?`,
+          [nextRunAt, randomMinutes, item.position, new Date().toISOString(), jobId]
+        );
 
-        db.prepare(
+        await db.execute(
           `UPDATE job_items 
            SET status = 'DELAYING', delay_before_minutes = ?, delay_before_ms = ?
-           WHERE id = ?`
-        ).run(randomMinutes, delayMs, item.id);
+           WHERE id = ?`,
+          [randomMinutes, delayMs, item.id]
+        );
 
         // Wait in 1-second increments so we can react to Pause or Cancel immediately
         let elapsed = 0;
@@ -78,7 +80,7 @@ async function processJob(jobId: string) {
           elapsed += 1000;
 
           // Re-check job status in DB
-          const check: any = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+          const check: any = await db.queryOne("SELECT status FROM jobs WHERE id = ?", [jobId]);
           if (!check || check.status !== "RUNNING") {
             wasCancelledOrPaused = true;
             break;
@@ -89,7 +91,6 @@ async function processJob(jobId: string) {
           break;
         }
       } else if (item.status === "DELAYING") {
-        // If it was already delaying (e.g. after server restart), continue remaining time
         if (job.next_run_at) {
           const remainingMs = Math.max(0, new Date(job.next_run_at).getTime() - Date.now());
           let elapsed = 0;
@@ -97,7 +98,7 @@ async function processJob(jobId: string) {
           while (elapsed < remainingMs) {
             await sleep(1000);
             elapsed += 1000;
-            const check: any = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+            const check: any = await db.queryOne("SELECT status FROM jobs WHERE id = ?", [jobId]);
             if (!check || check.status !== "RUNNING") {
               wasCancelledOrPaused = true;
               break;
@@ -108,20 +109,22 @@ async function processJob(jobId: string) {
       }
 
       // Check job status once more before executing
-      const preRunCheck: any = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId);
+      const preRunCheck: any = await db.queryOne("SELECT status FROM jobs WHERE id = ?", [jobId]);
       if (!preRunCheck || preRunCheck.status !== "RUNNING") {
         break;
       }
 
       // 4. Mark item as RUNNING
       const startedAt = new Date().toISOString();
-      db.prepare(
-        `UPDATE job_items SET status = 'RUNNING', started_at = ? WHERE id = ?`
-      ).run(startedAt, item.id);
+      await db.execute(
+        `UPDATE job_items SET status = 'RUNNING', started_at = ? WHERE id = ?`,
+        [startedAt, item.id]
+      );
 
-      db.prepare(
-        `UPDATE jobs SET updated_at = ? WHERE id = ?`
-      ).run(startedAt, jobId);
+      await db.execute(
+        `UPDATE jobs SET updated_at = ? WHERE id = ?`,
+        [startedAt, jobId]
+      );
 
       // 5. Execute automation sequence via Unipile
       const startTimePerf = performance.now();
@@ -160,7 +163,7 @@ async function processJob(jobId: string) {
       const itemStatus = result.success !== false ? "SUCCESS" : "ERROR";
 
       // 6. Save item outcome to database
-      db.prepare(
+      await db.execute(
         `UPDATE job_items
          SET status = ?,
              completed_at = ?,
@@ -175,49 +178,51 @@ async function processJob(jobId: string) {
              logs_json = ?,
              raw_response_json = ?,
              error = ?
-         WHERE id = ?`
-      ).run(
-        itemStatus,
-        completedAt,
-        durationMs,
-        result.profile?.provider_id || null,
-        result.profile?.name || null,
-        result.profile?.headline || null,
-        result.profile?.network_distance || null,
-        step2?.summary || "N/A",
-        step4?.summary || "N/A",
-        step5?.summary || "N/A",
-        JSON.stringify(result.logs || []),
-        JSON.stringify(result.profile?.raw || {}),
-        result.error || null,
-        item.id
+         WHERE id = ?`,
+        [
+          itemStatus,
+          completedAt,
+          durationMs,
+          result.profile?.provider_id || null,
+          result.profile?.name || null,
+          result.profile?.headline || null,
+          result.profile?.network_distance || null,
+          step2?.summary || "N/A",
+          step4?.summary || "N/A",
+          step5?.summary || "N/A",
+          JSON.stringify(result.logs || []),
+          JSON.stringify(result.profile?.raw || {}),
+          result.error || null,
+          item.id,
+        ]
       );
 
       // 7. Update Job Progress in DB
-      db.prepare(
+      await db.execute(
         `UPDATE jobs
          SET completed_profiles = completed_profiles + 1,
              next_run_at = NULL,
              current_gap_minutes = 0,
              updated_at = ?
-         WHERE id = ?`
-      ).run(completedAt, jobId);
+         WHERE id = ?`,
+        [completedAt, jobId]
+      );
     }
   } catch (error) {
     console.error(`[Worker] Error processing job ${jobId}:`, error);
   }
 }
 
-// Automatically resume any running jobs on server startup
-export function resumeRunningJobs() {
+// Automatically resume running jobs
+export async function resumeRunningJobs() {
   try {
-    const runningJobs: any[] = db
-      .prepare("SELECT id FROM jobs WHERE status = 'RUNNING'")
-      .all();
+    const runningJobs: any[] = await db.query(
+      "SELECT id FROM jobs WHERE status = 'RUNNING'"
+    );
     for (const job of runningJobs) {
       startJobWorker(job.id);
     }
   } catch (err) {
-    console.error("[Worker] Failed to resume running jobs:", err);
+    console.warn("[Worker] Could not check running jobs:", err);
   }
 }
