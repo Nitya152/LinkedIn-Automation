@@ -1,6 +1,19 @@
 import { sanitizeBaseUrl, extractLinkedInSlug } from "./unipile";
 import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, ProfileInfo } from "@/types";
 
+export function getUnipileErrorMessage(data: any, res?: Response): string {
+  if (data?.title) {
+    if (data.title === "No client session" || data?.type === "errors/no_client_session") {
+      return "No active client session (HTTP 503): Your LinkedIn account session is disconnected or expired on the Unipile dashboard. Please reconnect your account on dashboard.unipile.com.";
+    }
+    if (data.title === "Invalid credentials" || data?.type === "errors/invalid_credentials") {
+      return "Invalid API credentials (HTTP 401): Please verify your Unipile API Key.";
+    }
+    return `${data.title}${data?.message ? `: ${data.message}` : ""}`;
+  }
+  return data?.message || data?.error || (res ? `HTTP ${res.status} ${res.statusText}` : "Request failed");
+}
+
 export async function executeAutomation(config: AutomationConfig): Promise<AutomationResponse> {
   const logs: AutomationStepLog[] = [];
   let resolvedProfile: ProfileInfo | null = null;
@@ -92,6 +105,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
     }
 
     if (!step1Res.ok) {
+      const errMsg = getUnipileErrorMessage(step1Data, step1Res);
       logs.push({
         step: 1,
         title: "Resolve Public Slug to provider_id",
@@ -99,16 +113,16 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
         endpoint: step1Endpoint,
         url: step1Url,
         status: "error",
-        summary: `HTTP ${step1Res.status} ${step1Res.statusText}: Failed to resolve profile slug "${slug}". ${step1Data?.message || ""}`,
+        summary: `Failed to resolve profile slug "${slug}": ${errMsg}`,
         timestamp: new Date().toISOString(),
         rawResponse: step1Data,
-        error: step1Data?.message || `HTTP ${step1Res.status}`,
+        error: errMsg,
       });
 
       return {
         success: false,
         logs,
-        error: `Failed to resolve LinkedIn profile: ${step1Data?.message || step1Res.statusText}`,
+        error: `Failed to resolve LinkedIn profile: ${errMsg}`,
       };
     }
 
@@ -268,6 +282,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           rawResponse: step2Data,
         });
       } else {
+        const errMsg = getUnipileErrorMessage(step2Data, step2Res);
         logs.push({
           step: 2,
           title: "Check Connection Status & Send Invite",
@@ -275,11 +290,11 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           endpoint: step2Endpoint,
           url: step2Url,
           status: "error",
-          summary: `Failed to send invitation: HTTP ${step2Res.status} ${step2Res.statusText}. ${step2Data?.message || ""}`,
+          summary: `Failed to send invitation: ${errMsg}`,
           timestamp: new Date().toISOString(),
           requestBody: invitePayload,
           rawResponse: step2Data,
-          error: step2Data?.message || `HTTP ${step2Res.status}`,
+          error: errMsg,
         });
       }
     } catch (err: any) {
@@ -318,6 +333,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
     }
 
     if (!step3Res.ok) {
+      const errMsg = getUnipileErrorMessage(step3Data, step3Res);
       logs.push({
         step: 3,
         title: "Fetch Target's Posts",
@@ -325,10 +341,10 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
         endpoint: step3Endpoint,
         url: step3Url,
         status: "error",
-        summary: `Failed to fetch posts: HTTP ${step3Res.status} ${step3Res.statusText}. ${step3Data?.message || ""}`,
+        summary: `Failed to fetch posts: ${errMsg}`,
         timestamp: new Date().toISOString(),
         rawResponse: step3Data,
-        error: step3Data?.message || `HTTP ${step3Res.status}`,
+        error: errMsg,
       });
     } else {
       const rawItems: any[] = Array.isArray(step3Data?.items)
@@ -474,6 +490,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           rawResponse: step4Data,
         });
       } else {
+        const errMsg = getUnipileErrorMessage(step4Data, step4Res);
         logs.push({
           step: 4,
           title: "Auto-Like the Latest Post",
@@ -481,11 +498,11 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           endpoint: step4Endpoint,
           url: step4Url,
           status: "error",
-          summary: `Failed to react to post: HTTP ${step4Res.status}. ${step4Data?.message || ""}`,
+          summary: `Failed to react to post: ${errMsg}`,
           timestamp: new Date().toISOString(),
           requestBody: reactionPayload,
           rawResponse: step4Data,
-          error: step4Data?.message || `HTTP ${step4Res.status}`,
+          error: errMsg,
         });
       }
     } catch (err: any) {
@@ -577,6 +594,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           rawResponse: step5Data,
         });
       } else {
+        const errMsg = getUnipileErrorMessage(step5Data, step5Res);
         logs.push({
           step: 5,
           title: "Auto-Comment on the Latest Post",
@@ -584,11 +602,11 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           endpoint: step5Endpoint,
           url: step5Url,
           status: "error",
-          summary: `Failed to comment on post: HTTP ${step5Res.status}. ${step5Data?.message || ""}`,
+          summary: `Failed to comment on post: ${errMsg}`,
           timestamp: new Date().toISOString(),
           requestBody: { account_id: accountId, text: trimmedComment },
           rawResponse: step5Data,
-          error: step5Data?.message || `HTTP ${step5Res.status}`,
+          error: errMsg,
         });
       }
     } catch (err: any) {

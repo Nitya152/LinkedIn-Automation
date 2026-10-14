@@ -3,9 +3,17 @@ import db from "@/lib/db";
 import { startJobWorker, resumeRunningJobs } from "@/lib/worker";
 import { extractLinkedInSlug, sanitizeBaseUrl } from "@/lib/unipile";
 
-resumeRunningJobs().catch(() => {});
+export const dynamic = "force-dynamic";
+
+let hasResumed = false;
+function ensureJobsResumed() {
+  if (hasResumed || process.env.NEXT_PHASE === "phase-production-build") return;
+  hasResumed = true;
+  resumeRunningJobs().catch(() => {});
+}
 
 export async function POST(req: NextRequest) {
+  ensureJobsResumed();
   try {
     const body = await req.json();
     const {
@@ -92,6 +100,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  ensureJobsResumed();
   try {
     const jobs = await db.query(`
       SELECT id, status, account_id, min_delay_minutes, max_delay_minutes, 

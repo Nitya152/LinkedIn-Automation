@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { executeAutomation } from "@/lib/engine";
 import { AutomationConfig, AutomationResponse } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const body: AutomationConfig = await req.json();

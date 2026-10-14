@@ -271,10 +271,15 @@ export default function ConfigForm({ onRunAutomation, isRunning }: ConfigFormPro
             )}
 
             {accountFetchError && (
-              <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {accountFetchError}
-              </p>
+              <div className="mt-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50 text-xs text-rose-800 space-y-1">
+                <div className="flex items-start gap-1.5 font-medium">
+                  <AlertCircle className="h-3.5 w-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <span>{accountFetchError}</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed pl-5">
+                  💡 <strong>Tip:</strong> You do <em>not</em> need to fetch accounts if you already have your Account ID (<code className="bg-rose-100 px-1 py-0.2 rounded font-mono font-semibold">{config.accountId}</code>). To reconnect an expired session, visit your <a href="https://dashboard.unipile.com" target="_blank" rel="noreferrer" className="underline font-semibold hover:text-rose-900">Unipile Dashboard</a>.
+                </p>
+              </div>
             )}
           </div>
 
