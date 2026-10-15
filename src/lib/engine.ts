@@ -1,5 +1,6 @@
 import { sanitizeBaseUrl, extractLinkedInSlug } from "./unipile";
 import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, ProfileInfo } from "@/types";
+import { extractMilestones } from "./milestones";
 
 export function getUnipileErrorMessage(data: any, res?: Response): string {
   if (data?.title === "No client session" || data?.type === "errors/no_client_session") {
@@ -94,6 +95,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
     const step1Res = await fetch(step1Url, {
       method: "GET",
       headers: { "X-API-KEY": apiKey, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
     });
 
     let step1Data: any = {};
@@ -126,15 +128,22 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
       };
     }
 
-    providerId = step1Data?.provider_id || step1Data?.id || step1Data?.public_identifier || "";
-    if (!providerId.startsWith("ACoAA") && step1Data?.provider_id) {
-      providerId = step1Data.provider_id;
+    // Strict Identifier Guard: only use internal provider_id, never public slug
+    let candidateId = step1Data?.provider_id || "";
+    if (!candidateId && typeof step1Data?.id === "string" && step1Data.id.startsWith("ACoAA")) {
+      candidateId = step1Data.id;
     }
+
+    const isValidProviderId =
+      Boolean(candidateId) &&
+      typeof candidateId === "string" &&
+      candidateId.startsWith("ACoAA") &&
+      candidateId.toLowerCase() !== slug.toLowerCase();
 
     const fullName = step1Data?.name || [step1Data?.first_name, step1Data?.last_name].filter(Boolean).join(" ") || slug;
 
     resolvedProfile = {
-      provider_id: providerId,
+      provider_id: candidateId,
       first_name: step1Data?.first_name,
       last_name: step1Data?.last_name,
       name: fullName,
@@ -148,7 +157,8 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
       raw: step1Data,
     };
 
-    if (!providerId) {
+    if (!isValidProviderId) {
+      const errMsg = `Invalid provider_id resolved ("${candidateId || 'none'}"); slug cannot be used for downstream actions.`;
       logs.push({
         step: 1,
         title: "Resolve Public Slug to provider_id",
@@ -156,19 +166,21 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
         endpoint: step1Endpoint,
         url: step1Url,
         status: "error",
-        summary: `Resolved profile but no valid provider_id (ACoAA...) found for slug "${slug}".`,
+        summary: errMsg,
         timestamp: new Date().toISOString(),
         rawResponse: step1Data,
-        error: "Missing provider_id",
+        error: errMsg,
       });
 
       return {
         success: false,
         logs,
         profile: resolvedProfile,
-        error: "Missing provider_id in Unipile response",
+        error: errMsg,
       };
     }
+
+    providerId = candidateId;
 
     logs.push({
       step: 1,
@@ -256,6 +268,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           "Content-Type": "application/json",
         },
         body: JSON.stringify(invitePayload),
+        signal: AbortSignal.timeout(15000),
       });
 
       let step2Data: any = {};
@@ -322,6 +335,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
     const step3Res = await fetch(step3Url, {
       method: "GET",
       headers: { "X-API-KEY": apiKey, Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
     });
 
     let step3Data: any = {};
@@ -466,6 +480,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
           "Content-Type": "application/json",
         },
         body: JSON.stringify(reactionPayload),
+        signal: AbortSignal.timeout(15000),
       });
 
       let step4Data: any = {};
@@ -570,6 +585,7 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
         method: "POST",
         headers: { "X-API-KEY": apiKey, Accept: "application/json" },
         body: formData,
+        signal: AbortSignal.timeout(15000),
       });
 
       let step5Data: any = {};
@@ -625,11 +641,14 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
     }
   }
 
+  const milestones = extractMilestones(resolvedProfile, fetchedPosts);
+
   return {
     success: logs.every((l) => l.status !== "error"),
     logs,
     profile: resolvedProfile,
     posts: fetchedPosts,
     latestPost,
+    milestones,
   };
 }

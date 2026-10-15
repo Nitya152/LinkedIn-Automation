@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   FileText,
 } from "lucide-react";
-import { AutomationResponse, AutomationStepLog, ProfileInfo, PostItem } from "@/types";
+import { AutomationResponse, AutomationStepLog, ProfileInfo, PostItem, RelationshipMilestone } from "@/types";
 
 interface ResultsSummaryProps {
   results: {
@@ -27,6 +27,7 @@ interface ResultsSummaryProps {
     profile: ProfileInfo | null;
     posts: PostItem[];
     latestPost?: PostItem | null;
+    milestones?: RelationshipMilestone[];
     stats: {
       durationMs: number;
       completedAt: string;
@@ -43,7 +44,7 @@ export default function ResultsSummary({
   onJumpToPosts,
   onJumpToLogs,
 }: ResultsSummaryProps) {
-  const { isRunning, logs, profile, posts, latestPost, stats, error } = results;
+  const { isRunning, logs, profile, posts, latestPost, stats, error, milestones } = results;
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
 
@@ -313,6 +314,76 @@ ${logs.map((l) => `• Step ${l.step} [${l.status.toUpperCase()}]: ${l.summary}`
           </div>
         </div>
       </div>
+
+      {/* Relationship Milestones & Special Days */}
+      {milestones && milestones.length > 0 && (
+        <div className="p-5 bg-gradient-to-r from-blue-50/70 via-indigo-50/70 to-purple-50/60 border-t border-slate-200 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-indigo-600" />
+              <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                Relationship Milestones Detected ({milestones.length})
+              </h4>
+            </div>
+            <span className="text-[11px] text-indigo-700 font-medium">
+              High-converting outreach opportunities for Relationship Managers
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {milestones.map((m) => (
+              <div
+                key={m.id}
+                className="p-3.5 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-2 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5 truncate">
+                      <span>
+                        {m.type === "WORK_ANNIVERSARY"
+                          ? "🏆"
+                          : m.type === "BIRTHDAY"
+                          ? "🎂"
+                          : m.type === "NEW_ROLE"
+                          ? "🚀"
+                          : "❤️"}
+                      </span>
+                      <span className="truncate">{m.title}</span>
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0">
+                      {m.dateText}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                    {m.context}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-400 font-medium">Outreach Template:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(m.suggestedMessage, m.id)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    {copiedId === m.id ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-600" />
+                        <span className="text-emerald-700">Copied Note!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 text-indigo-600" />
+                        <span>Copy Outreach Note</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

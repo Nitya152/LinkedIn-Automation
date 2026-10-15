@@ -20,10 +20,12 @@ import {
   PlusCircle,
   ShieldCheck,
   Save,
+  Search,
 } from "lucide-react";
-import { AutomationConfig, ConnectedAccount } from "@/types";
+import { AutomationConfig, ConnectedAccount, LinkedInSearchResult } from "@/types";
 import { sanitizeBaseUrl, extractLinkedInSlug } from "@/lib/unipile";
 import ConnectAccountModal from "./ConnectAccountModal";
+import LinkedInSearchModal from "./LinkedInSearchModal";
 
 export const DEFAULT_CONFIG: AutomationConfig = {
   baseUrl: "",
@@ -61,6 +63,8 @@ export default function ConfigForm({
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [selectedTargetProfile, setSelectedTargetProfile] = useState<LinkedInSearchResult | null>(null);
 
   // Load from Database and LocalStorage on mount
   useEffect(() => {
@@ -280,7 +284,7 @@ export default function ConfigForm({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
                 <Globe className="h-3.5 w-3.5 text-blue-600" />
-                Unipile Base API URL
+                Unipile DSN / Base API URL ($DSN)
               </label>
               <span className="text-[10px] text-slate-400 font-mono">auto-sanitized</span>
             </div>
@@ -293,7 +297,7 @@ export default function ConfigForm({
               className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Automatically prefixes HTTPS and appends <code className="text-slate-600">/api/v1</code>.
+              Your Unipile DSN host or API base URL. Automatically formats HTTPS and appends <code className="text-slate-600">/api/v1</code>.
             </p>
           </div>
 
@@ -302,7 +306,7 @@ export default function ConfigForm({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
                 <KeyRound className="h-3.5 w-3.5 text-blue-600" />
-                Unipile API Key
+                Unipile API Key ($KEY)
               </label>
               <span className="text-[10px] text-slate-400 font-mono">X-API-KEY</span>
             </div>
@@ -410,16 +414,52 @@ export default function ConfigForm({
                 Slug: {extractedSlug || "none"}
               </span>
             </div>
-            <input
-              type="text"
-              required
-              value={config.targetInput}
-              onChange={(e) => handleChange("targetInput", e.target.value)}
-              placeholder="e.g. vaidehi-gondalia-35b395250 or https://www.linkedin.com/in/username"
-              className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={config.targetInput}
+                onChange={(e) => {
+                  handleChange("targetInput", e.target.value);
+                  setSelectedTargetProfile(null);
+                }}
+                placeholder="e.g. vaidehi-gondalia-35b395250 or https://www.linkedin.com/in/username"
+                className="flex-1 rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setIsSearchModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer shadow-2xs"
+                title="Search target profiles by Name, Title, or Company"
+              >
+                <Search className="h-3.5 w-3.5 text-blue-600" />
+                <span>Search by Name</span>
+              </button>
+            </div>
+
+            {selectedTargetProfile && (
+              <div className="mt-1.5 flex items-center justify-between p-2 rounded-md bg-blue-50/70 border border-blue-200 text-xs text-blue-900 animate-in fade-in">
+                <div className="flex items-center gap-2 truncate">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                  <span className="font-semibold truncate">{selectedTargetProfile.name}</span>
+                  {selectedTargetProfile.headline && (
+                    <span className="text-slate-500 truncate text-[11px] hidden sm:inline">
+                      • {selectedTargetProfile.headline}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTargetProfile(null)}
+                  className="text-slate-400 hover:text-slate-600 text-[10px] ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <p className="text-[11px] text-slate-400 mt-1">
-              Accepts full profile URL or vanity slug. Strips prefixes and trailing slashes.
+              Accepts full profile URL, vanity slug, or click <strong>Search by Name</strong> to find candidates directly.
             </p>
           </div>
         </div>
@@ -547,6 +587,18 @@ export default function ConfigForm({
         baseUrl={config.baseUrl}
         apiKey={config.apiKey}
         onAccountConnected={handleAccountConnected}
+      />
+
+      <LinkedInSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        baseUrl={config.baseUrl}
+        apiKey={config.apiKey}
+        accountId={config.accountId}
+        onSelectProfile={(slug, profile) => {
+          handleChange("targetInput", slug);
+          setSelectedTargetProfile(profile);
+        }}
       />
     </div>
   );

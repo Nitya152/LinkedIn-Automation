@@ -68,12 +68,42 @@ export interface PostItem {
   raw?: any;
 }
 
+export interface RelationshipMilestone {
+  id: string;
+  type: 'WORK_ANNIVERSARY' | 'BIRTHDAY' | 'NEW_ROLE' | 'PERSONAL_ANNIVERSARY';
+  title: string;
+  dateText: string;
+  month?: number;
+  day?: number;
+  yearsCount?: number;
+  company?: string;
+  roleTitle?: string;
+  context: string;
+  suggestedMessage: string;
+  source: 'EXPERIENCE' | 'CONTACT_INFO' | 'POST_KEYWORD';
+}
+
+export interface LinkedInSearchResult {
+  id?: string;
+  provider_id?: string;
+  public_identifier: string;
+  name: string;
+  first_name?: string;
+  last_name?: string;
+  headline?: string;
+  location?: string;
+  profile_url?: string;
+  profile_picture_url?: string;
+  distance?: string;
+}
+
 export interface AutomationResponse {
   success: boolean;
   logs: AutomationStepLog[];
   profile?: ProfileInfo | null;
   posts?: PostItem[];
   latestPost?: PostItem | null;
+  milestones?: RelationshipMilestone[];
   error?: string;
 }
 

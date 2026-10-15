@@ -9,7 +9,7 @@ import ProfileCard from "@/components/ProfileCard";
 import PostsFeed from "@/components/PostsFeed";
 import ResultsSummary from "@/components/ResultsSummary";
 import BatchRunner from "@/components/BatchRunner";
-import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, ProfileInfo } from "@/types";
+import { AutomationConfig, AutomationResponse, AutomationStepLog, PostItem, ProfileInfo, RelationshipMilestone } from "@/types";
 import { AlertCircle, ShieldCheck, Zap, User, Users, Clock } from "lucide-react";
 
 export default function Home() {
@@ -19,6 +19,7 @@ export default function Home() {
   const [logs, setLogs] = useState<AutomationStepLog[]>([]);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [posts, setPosts] = useState<PostItem[]>([]);
+  const [milestones, setMilestones] = useState<RelationshipMilestone[]>([]);
   const [automationError, setAutomationError] = useState<string | null>(null);
   const [executionStats, setExecutionStats] = useState<{
     durationMs: number;
@@ -59,6 +60,7 @@ export default function Home() {
     setConfig(activeConfig);
     setIsRunning(true);
     setAutomationError(null);
+    setMilestones([]);
 
     setLogs([
       {
@@ -91,6 +93,7 @@ export default function Home() {
       setLogs(data.logs || []);
       setProfile(data.profile || null);
       setPosts(data.posts || []);
+      setMilestones(data.milestones || []);
 
       const isOverallSuccess = data.success !== false;
       setExecutionStats({
@@ -232,6 +235,7 @@ export default function Home() {
                   profile,
                   posts,
                   latestPost,
+                  milestones,
                   stats: executionStats,
                   error: automationError,
                 }}
