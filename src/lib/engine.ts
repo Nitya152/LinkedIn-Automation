@@ -442,7 +442,18 @@ export async function executeAutomation(config: AutomationConfig): Promise<Autom
   const step4Endpoint = `/posts/reaction`;
   const step4Url = `${baseUrl}${step4Endpoint}`;
 
-  if (!latestPost) {
+  if (reactionType === "none") {
+    logs.push({
+      step: 4,
+      title: "Auto-Like the Latest Post",
+      method: "SKIP",
+      endpoint: step4Endpoint,
+      url: step4Url,
+      status: "skipped",
+      summary: "Reaction set to 'None'. Post fetching completed without liking.",
+      timestamp: new Date().toISOString(),
+    });
+  } else if (!latestPost) {
     logs.push({
       step: 4,
       title: "Auto-Like the Latest Post",

@@ -65,7 +65,7 @@ export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRu
   const [effectiveConfig, setEffectiveConfig] = useState<AutomationConfig>(baseConfig);
   const [commonComment, setCommonComment] = useState(baseConfig.commentText || "");
   const [batchReactionType, setBatchReactionType] = useState<
-    "like" | "celebrate" | "support" | "love" | "insightful" | "funny"
+    "like" | "celebrate" | "support" | "love" | "insightful" | "funny" | "none"
   >(baseConfig.reactionType || "like");
 
   const [slugsText, setSlugsText] = useState("");
@@ -761,12 +761,13 @@ export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRu
               value={batchReactionType}
               onChange={(e) =>
                 setBatchReactionType(
-                  e.target.value as "like" | "celebrate" | "support" | "love" | "insightful" | "funny"
+                  e.target.value as "like" | "celebrate" | "support" | "love" | "insightful" | "funny" | "none"
                 )
               }
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none capitalize font-medium"
             >
               <option value="like">👍 Like</option>
+              <option value="none">🚫 None (Fetch posts only, do not react)</option>
               <option value="celebrate">👏 Celebrate</option>
               <option value="support">🤝 Support</option>
               <option value="love">❤️ Love</option>
@@ -774,7 +775,7 @@ export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRu
               <option value="funny">😄 Funny</option>
             </select>
             <p className="text-[10px] text-slate-400">
-              Reacts to the most recent post found on each profile.
+              {batchReactionType === "none" ? "Post reaction skipped; extracts feed & milestones only." : "Reacts to the most recent post found on each profile."}
             </p>
           </div>
 

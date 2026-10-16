@@ -280,11 +280,24 @@ export default function PostsFeed({ posts, config }: PostsFeedProps) {
                   <button
                     type="button"
                     disabled={isReacting || post.permissions?.can_react === false}
-                    onClick={() => handleManualReaction(post.social_id, config.reactionType || "like")}
+                    onClick={() =>
+                      handleManualReaction(
+                        post.social_id,
+                        config.reactionType && config.reactionType !== "none" ? config.reactionType : "like"
+                      )
+                    }
                     className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50 shadow-2xs"
                   >
                     <ThumbsUp className={`h-3.5 w-3.5 text-blue-600 ${isReacting ? "animate-spin" : ""}`} />
-                    <span>{isReacting ? "Reacting..." : `Like (${config.reactionType || "like"})`}</span>
+                    <span>
+                      {isReacting
+                        ? "Reacting..."
+                        : `Like (${
+                            config.reactionType && config.reactionType !== "none"
+                              ? config.reactionType
+                              : "like"
+                          })`}
+                    </span>
                   </button>
 
                   <button

@@ -6,7 +6,7 @@ export interface AutomationConfig {
   message: string;
   sendWithoutNote: boolean;
   limit: number;
-  reactionType: 'like' | 'celebrate' | 'support' | 'love' | 'insightful' | 'funny';
+  reactionType: 'like' | 'celebrate' | 'support' | 'love' | 'insightful' | 'funny' | 'none';
   commentText: string;
 }
 

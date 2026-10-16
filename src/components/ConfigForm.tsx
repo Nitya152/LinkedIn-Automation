@@ -617,13 +617,16 @@ export default function ConfigForm({
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none capitalize"
               >
                 <option value="like">👍 Like (Default)</option>
+                <option value="none">🚫 None (Fetch posts only, do not react)</option>
                 <option value="celebrate">👏 Celebrate</option>
                 <option value="support">🤝 Support</option>
                 <option value="love">❤️ Love</option>
                 <option value="insightful">💡 Insightful</option>
                 <option value="funny">😄 Funny</option>
               </select>
-              <p className="text-[10px] text-slate-400 mt-1">Applied to latest post.</p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                {config.reactionType === "none" ? "Reaction skipped; only fetches posts & milestones." : "Applied to latest post."}
+              </p>
             </div>
 
             {/* Auto Comment Text */}

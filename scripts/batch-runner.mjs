@@ -13,7 +13,7 @@
  *   --account <accountId>          Unipile Account ID (default: BdbX2VPBS1-_nCCRdnxt_g)
  *   --api-key <apiKey>             Unipile API Key (default: prefilled)
  *   --base-url <url>               Unipile Base URL (default: https://api70.unipile.com:20009/api/v1)
- *   --reaction <type>              like, celebrate, support, love, insightful, funny (default: like)
+ *   --reaction <type>              like, celebrate, support, love, insightful, funny, none (default: like)
  *   --comment <text>               Optional auto-comment text
  *   --no-note                      Send invite without note
  *   --out <file>                   Path to write JSON execution audit log
