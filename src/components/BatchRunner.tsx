@@ -66,7 +66,7 @@ export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRu
   const [commonComment, setCommonComment] = useState(baseConfig.commentText || "");
   const [batchReactionType, setBatchReactionType] = useState<
     "like" | "celebrate" | "support" | "love" | "insightful" | "funny" | "none"
-  >(baseConfig.reactionType || "like");
+  >(baseConfig.reactionType || "none");
 
   const [slugsText, setSlugsText] = useState("");
   const [minDelayMinutes, setMinDelayMinutes] = useState(2);
@@ -766,8 +766,8 @@ export default function BatchRunner({ baseConfig, onSwitchToSingleTab }: BatchRu
               }
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none capitalize font-medium"
             >
+              <option value="none">🚫 None (Fetch posts only, do not react) (Default)</option>
               <option value="like">👍 Like</option>
-              <option value="none">🚫 None (Fetch posts only, do not react)</option>
               <option value="celebrate">👏 Celebrate</option>
               <option value="support">🤝 Support</option>
               <option value="love">❤️ Love</option>

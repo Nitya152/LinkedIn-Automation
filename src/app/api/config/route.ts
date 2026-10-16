@@ -21,7 +21,7 @@ export async function GET() {
         apiKey: config.apiKey || "",
         accountId: config.accountId || "",
         targetInput: config.targetInput || "",
-        reactionType: config.reactionType || "like",
+        reactionType: config.reactionType || "none",
         commentText: config.commentText || "",
         message: config.message || "",
         sendWithoutNote: config.sendWithoutNote === "true" || config.sendWithoutNote === "1",

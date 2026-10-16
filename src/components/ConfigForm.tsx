@@ -36,7 +36,7 @@ export const DEFAULT_CONFIG: AutomationConfig = {
   message: "",
   sendWithoutNote: false,
   limit: 10,
-  reactionType: "like",
+  reactionType: "none",
   commentText: "",
 };
 
@@ -616,8 +616,8 @@ export default function ConfigForm({
                 onChange={(e) => handleChange("reactionType", e.target.value as any)}
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none capitalize"
               >
-                <option value="like">👍 Like (Default)</option>
-                <option value="none">🚫 None (Fetch posts only, do not react)</option>
+                <option value="none">🚫 None (Fetch posts only, do not react) (Default)</option>
+                <option value="like">👍 Like</option>
                 <option value="celebrate">👏 Celebrate</option>
                 <option value="support">🤝 Support</option>
                 <option value="love">❤️ Love</option>

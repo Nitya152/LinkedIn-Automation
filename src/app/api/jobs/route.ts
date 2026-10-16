@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       slugs: rawSlugs,
       minDelayMinutes = 2.0,
       maxDelayMinutes = 5.0,
-      reactionType = "like",
+      reactionType = "none",
       commentText = "",
       sendWithoutNote = false,
     } = body;
