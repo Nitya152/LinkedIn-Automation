@@ -324,9 +324,22 @@ export default function ConnectAccountModal({
                 </div>
 
                 {directError && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 space-y-1">
                     <p className="font-medium">Connection Error</p>
-                    <p className="text-[11px] text-rose-700 mt-0.5">{directError}</p>
+                    <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">{directError}</p>
+                    {directError.toLowerCase().includes("credentials") && (
+                      <p className="text-[11px] text-rose-700 pt-1">
+                        💡 <strong>Tip:</strong> If your password is correct but LinkedIn is blocking automated login, switch to the{" "}
+                        <button
+                          type="button"
+                          onClick={() => setAuthMethod("hosted")}
+                          className="underline font-semibold hover:text-rose-900 cursor-pointer"
+                        >
+                          Hosted Link (Dashboard Style)
+                        </button>{" "}
+                        tab above.
+                      </p>
+                    )}
                   </div>
                 )}
 

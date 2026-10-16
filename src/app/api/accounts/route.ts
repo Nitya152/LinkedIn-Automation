@@ -61,3 +61,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { baseUrl: rawBaseUrl, apiKey, accountId } = await req.json();
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "Unipile API Key is required" }, { status: 400 });
+    }
+    if (!accountId) {
+      return NextResponse.json({ error: "Unipile Account ID is required" }, { status: 400 });
+    }
+
+    const baseUrl = sanitizeBaseUrl(rawBaseUrl);
+    const targetUrl = `${baseUrl}/accounts/${encodeURIComponent(accountId)}?provider_session_revoke=true`;
+
+    const res = await fetch(targetUrl, {
+      method: "DELETE",
+      headers: {
+        "X-API-KEY": apiKey,
+        Accept: "application/json",
+      },
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const errorMessage =
+        data?.title || data?.message || data?.error || `HTTP ${res.status}: Failed to disconnect account`;
+      return NextResponse.json({ error: errorMessage, raw: data }, { status: res.status });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "LinkedIn account disconnected and session revoked successfully.",
+      raw: data,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Failed to disconnect account" },
+      { status: 500 }
+    );
+  }
+}
+

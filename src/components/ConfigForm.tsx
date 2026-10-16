@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Save,
   Search,
+  Unlink,
 } from "lucide-react";
 import { AutomationConfig, ConnectedAccount, LinkedInSearchResult } from "@/types";
 import { sanitizeBaseUrl, extractLinkedInSlug } from "@/lib/unipile";
@@ -59,6 +60,9 @@ export default function ConfigForm({
   const [isFetchingAccounts, setIsFetchingAccounts] = useState(false);
   const [fetchedAccounts, setFetchedAccounts] = useState<ConnectedAccount[]>([]);
   const [accountFetchError, setAccountFetchError] = useState<string | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [disconnectMessage, setDisconnectMessage] = useState<string | null>(null);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,6 +185,83 @@ export default function ConfigForm({
     handleChange("accountId", newAccountId);
     setAccountFetchError(null);
     handleFetchAccounts().catch(() => {});
+  };
+
+  const handleDisconnectAccount = async (targetId?: string) => {
+    const idToDisconnect = (targetId || config.accountId).trim();
+    if (!idToDisconnect) {
+      setDisconnectError("No account ID selected to disconnect.");
+      return;
+    }
+    if (!config.apiKey.trim()) {
+      setDisconnectError("Unipile API Key is required to disconnect an account.");
+      return;
+    }
+
+    const matchedAccount = fetchedAccounts.find((a) => a.id === idToDisconnect);
+    const label = matchedAccount?.name
+      ? `"${matchedAccount.name}" (${idToDisconnect})`
+      : idToDisconnect;
+
+    if (
+      !confirm(
+        `Are you sure you want to disconnect LinkedIn account ${label}?\n\nThis will revoke the active session in Unipile.`
+      )
+    ) {
+      return;
+    }
+
+    setIsDisconnecting(true);
+    setDisconnectError(null);
+    setDisconnectMessage(null);
+
+    try {
+      const effectiveBaseUrl = config.baseUrl.trim() || "https://api70.unipile.com:20009/api/v1";
+      const sanitized = sanitizeBaseUrl(effectiveBaseUrl);
+
+      const res = await fetch("/api/accounts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: sanitized,
+          apiKey: config.apiKey.trim(),
+          accountId: idToDisconnect,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}: Failed to disconnect account`);
+      }
+
+      // Remove from fetchedAccounts list
+      const remaining = fetchedAccounts.filter((a) => a.id !== idToDisconnect);
+      setFetchedAccounts(remaining);
+
+      // Determine next active accountId
+      let nextAccountId = "";
+      if (remaining.length > 0) {
+        nextAccountId = remaining[0].id;
+      }
+      handleChange("accountId", nextAccountId);
+
+      // Auto-save updated settings
+      const updatedConfig = { ...config, accountId: nextAccountId };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedConfig));
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedConfig),
+      });
+      onConfigChange?.(updatedConfig);
+
+      setDisconnectMessage(`LinkedIn account ${idToDisconnect} was disconnected and session revoked.`);
+      setTimeout(() => setDisconnectMessage(null), 5000);
+    } catch (err: any) {
+      setDisconnectError(err.message || "Failed to disconnect account");
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -372,14 +453,26 @@ export default function ConfigForm({
                 <RefreshCw className={`h-3.5 w-3.5 ${isFetchingAccounts ? "animate-spin" : ""}`} />
                 <span>Fetch</span>
               </button>
+              {config.accountId.trim() && fetchedAccounts.length === 0 && (
+                <button
+                  type="button"
+                  disabled={isDisconnecting || !config.apiKey}
+                  onClick={() => handleDisconnectAccount()}
+                  className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer shadow-2xs"
+                  title="Disconnect and revoke this LinkedIn account from Unipile"
+                >
+                  <Unlink className={`h-3.5 w-3.5 text-rose-600 ${isDisconnecting ? "animate-spin" : ""}`} />
+                  <span>{isDisconnecting ? "Disconnecting..." : "Disconnect"}</span>
+                </button>
+              )}
             </div>
 
             {fetchedAccounts.length > 0 && (
-              <div className="mt-2">
+              <div className="mt-2 flex items-center gap-2">
                 <select
                   value={config.accountId}
                   onChange={(e) => handleChange("accountId", e.target.value)}
-                  className="w-full rounded-md border border-emerald-300 bg-emerald-50/40 px-2.5 py-1.5 text-xs text-emerald-800 font-mono focus:border-emerald-600 focus:outline-none"
+                  className="flex-1 rounded-md border border-emerald-300 bg-emerald-50/40 px-2.5 py-1.5 text-xs text-emerald-800 font-mono focus:border-emerald-600 focus:outline-none"
                 >
                   {fetchedAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
@@ -387,6 +480,30 @@ export default function ConfigForm({
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  disabled={isDisconnecting || !config.accountId.trim()}
+                  onClick={() => handleDisconnectAccount(config.accountId)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer shadow-2xs"
+                  title="Disconnect and revoke selected account from Unipile"
+                >
+                  <Unlink className={`h-3 w-3 ${isDisconnecting ? "animate-spin" : ""}`} />
+                  <span>{isDisconnecting ? "Disconnecting..." : "Disconnect"}</span>
+                </button>
+              </div>
+            )}
+
+            {disconnectMessage && (
+              <div className="mt-2 p-2 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                <span>{disconnectMessage}</span>
+              </div>
+            )}
+
+            {disconnectError && (
+              <div className="mt-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-start gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span>{disconnectError}</span>
               </div>
             )}
 
